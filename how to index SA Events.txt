@@ -1,0 +1,38 @@
+Registered for ATDW API access but it looks like it's not a normal API and in any case it's not open or free. For now southaustralia.com appears to be an SA government site which has the content I want so I'll scrape it from there as a proof of concept.
+
+These commands build a list of URLs 100 at a time and then put them together in one file:
+  177  wget -qO- 'http://southaustralia.com/search-results?page=1&Category=Events&resultsPerPage=100&run=1'|grep -A3 --no-group-separator search-listing-heading|grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]'|sed -e 's|["'\'']||g' -e 's/^<a href=//' -e 's|^/|http://southaustralia.com/|'
+  178  wget -qO- 'http://southaustralia.com/search-results?page=1&Category=Events&resultsPerPage=100&run=1'|grep -A3 --no-group-separator search-listing-heading|grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]'|sed -e 's|["'\'']||g' -e 's/^<a href=//' -e 's|^/|http://southaustralia.com/|'>page1
+  179  wget -qO- 'http://southaustralia.com/search-results?page=2&Category=Events&resultsPerPage=100&run=1'|grep -A3 --no-group-separator search-listing-heading|grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]'|sed -e 's|["'\'']||g' -e 's/^<a href=//' -e 's|^/|http://southaustralia.com/|'>page2
+  180  tail page2
+  181  wget -qO- 'http://southaustralia.com/search-results?page=3&Category=Events&resultsPerPage=100&run=1'|grep -A3 --no-group-separator search-listing-heading|grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]'|sed -e 's|["'\'']||g' -e 's/^<a href=//' -e 's|^/|http://southaustralia.com/|'>page3
+  182  tail page3
+  183  wget -qO- 'http://southaustralia.com/search-results?page=4&Category=Events&resultsPerPage=100&run=1'|grep -A3 --no-group-separator search-listing-heading|grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]'|sed -e 's|["'\'']||g' -e 's/^<a href=//' -e 's|^/|http://southaustralia.com/|'>page4
+  184  tail page4
+  185  wget -qO- 'http://southaustralia.com/search-results?page=5&Category=Events&resultsPerPage=100&run=1'|grep -A3 --no-group-separator search-listing-heading|grep -o '<a href=['"'"'"][^"'"'"']*['"'"'"]'|sed -e 's|["'\'']||g' -e 's/^<a href=//' -e 's|^/|http://southaustralia.com/|'>page5
+  186  tail page5
+  187  rm page5
+  188  cat page1 page2 page3 page4
+  189  cat page1 page2 page3 page4>pagestoindex
+
+  Then used pagestoindex as an input file to wget to download those pages only.
+  wget --input-file=../pagestoindex --base=http://southaustralia.com/
+  
+  Index the content:
+  omindex --db /var/lib/xapian-omega/data/default --url http://southaustralia.com/ SAEvents
+  
+  statically linked the search binary to search.cgi in web root
+  
+  Search works - had a go at replacing the title in the files with the following:
+  #!/bin/bash
+for file in *; 
+do
+    if [[ -f $file ]]; 
+    then
+        newtitle=$(grep og:title $file|sed -e 's/<meta property="og:title" content="//' -e 's|" />||' $file);
+        sed -i 's/Search-Results/\$newtitle/g'  "$file"
+        echo $newtitle $file
+    fi;
+done
+
+It's close - it pulls out the title from the relevant tag but somehow the substitution doesn't work. Needs to be rewritten in something like perl anyway.
